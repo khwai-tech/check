@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d5c52">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/logo.svg">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Housie Archive">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Bumper Housie Data Archive</title>
+<style>
+    :root {
+        color-scheme: light dark;
+        --bg:#e6edeb; --card:#fff; --ink:#10231f; --muted:#5a6e68; --line:#d3ddd9;
+        --brand:#0d5c52; --chip:#e1eeea; --chip-ink:#0d5c52;
+        --ball:#f4b223; --ball-ink:#3a2a00; --cash:#1d7a4b; --upi:#5846c9;
+        --danger:#c8423f; --focus:#1a8f82; --r:16px;
+    }
+    @media (prefers-color-scheme: dark) {
+        :root { --bg:#0b1715; --card:#13231f; --ink:#e6f0ed; --muted:#93aaa3; --line:#26403a;
+            --brand:#0f6f64; --chip:#1d3832; --chip-ink:#bfe6dc; --cash:#4cc490; --upi:#a99dff;
+            --danger:#e8706e; --focus:#4fd1c0; }
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; padding:10px 16px 48px; background:var(--bg); color:var(--ink);
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size:17px; -webkit-tap-highlight-color:transparent; }
+    .container { max-width:1240px; margin:0 auto; }
+    button, input, select { font-family:inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline:3px solid var(--focus); outline-offset:2px; }
+
+    /* App bar */
+    .page-header { background:var(--brand); color:#fff; border-radius:var(--r);
+        padding:14px 20px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; gap:14px;
+        box-shadow:0 4px 18px rgba(0,0,0,.18); }
+    .page-header h1 { margin:0; font-size:1.55rem; font-weight:800; letter-spacing:.2px; overflow-wrap:anywhere; }
+    .page-header .sub { margin:2px 0 0; color:rgba(255,255,255,.8); font-size:.95rem; }
+    .badge { font-size:.85rem; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,.18); white-space:nowrap; }
+    .badge:empty { display:none; }
+
+    /* Buttons: 48px touch targets */
+    .btn { min-height:48px; padding:0 20px; border:0; background:var(--chip); color:var(--chip-ink); border-radius:12px;
+        font-weight:700; font-size:1rem; cursor:pointer; }
+    .btn:hover:not(:disabled) { background:color-mix(in srgb,var(--chip) 70%,var(--focus)); }
+    .btn:active:not(:disabled) { transform:scale(.97); }
+    .btn:disabled { opacity:.5; }
+    .btn.primary { background:var(--brand); color:#fff; }
+    .btn.ghost { background:transparent; border:1.5px solid var(--line); color:var(--ink); }
+    .btn.danger { background:var(--danger); color:#fff; }
+    .btn.icon { min-width:48px; padding:0; font-size:1.15rem; }
+
+    .event-actions { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .file-bar { display:flex; align-items:center; gap:12px; flex:1; min-width:260px; background:var(--card); border-radius:var(--r);
+        padding:8px 8px 8px 16px; border-left:6px solid var(--cash); }
+    .file-bar.empty { border-left-color:var(--line); }
+    .file-icon { font-size:1.6rem; }
+    .file-info { display:flex; flex-direction:column; min-width:0; flex:1; }
+    .file-label { color:var(--muted); font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.4px; }
+    .file-info b { font-size:1.05rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .file-count { color:var(--muted); font-weight:700; white-space:nowrap; }
+    .data-actions { display:flex; gap:10px; align-items:center; }
+        background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+
+    /* Totals */
+    .stats-title { margin:0 0 10px; font-size:1.05rem; }
+    .stats-title span { color:var(--muted); font-weight:400; font-size:.88rem; margin-left:6px; }
+    .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+    .stat-card { background:var(--card); border-radius:var(--r); padding:16px 18px; border-top:5px solid var(--brand); display:flex; flex-direction:column; gap:4px; }
+    .stat-card:nth-child(1) { border-top-color:var(--muted); }
+    .stat-card:nth-child(3) { border-top-color:var(--cash); }
+    .stat-card:nth-child(4) { border-top-color:var(--upi); }
+    .stat-label { color:var(--muted); font-size:.85rem; font-weight:600; }
+    .stat-card b { font-size:clamp(1.35rem,3.2vw,2rem); font-weight:800; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+    #viewBox { margin-top:16px; } #viewBox[hidden] { display:none; }
+    #viewBox .stat-card { padding:10px 14px; border-top-width:3px; } #viewBox .stat-card b { font-size:1.2rem; }
+
+    /* Search / page / sort: one row */
+    .filters { display:grid; grid-template-columns:minmax(0,2.3fr) minmax(0,1fr) minmax(0,1.2fr); gap:12px; margin:20px 0 12px;
+        background:var(--card); padding:16px; border-radius:var(--r); align-items:end; }
+    .filters label { display:flex; flex-direction:column; gap:5px; font-size:.82rem; color:var(--muted); font-weight:700; min-width:0; }
+    .filters label.f-search { font-size:1rem; font-weight:800; color:var(--ink); }
+    .filters input, .filters select, .pager select { width:100%; min-height:60px; padding:0 12px; border:1.5px solid var(--line); border-radius:12px;
+        font-size:1.05rem; background:var(--bg); color:var(--ink); }
+    .pager select { min-height:48px; width:auto; }
+    #fTicket { font-size:1.8rem; font-weight:800; letter-spacing:.03em; border:2.5px solid var(--brand); -webkit-appearance:none; appearance:none; }
+    .seg { grid-column:1/-1; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .seg .lbl { color:var(--muted); font-weight:700; font-size:.85rem; margin-right:4px; }
+    .seg button { min-height:46px; padding:0 20px; border-radius:999px; border:1.5px solid var(--line); background:transparent; color:var(--muted);
+        font-weight:700; font-size:1rem; cursor:pointer; }
+    .seg button[aria-pressed="true"] { background:var(--brand); border-color:var(--brand); color:#fff; }
+    .result { margin:0 0 14px; padding:16px 20px; border-radius:var(--r); font-weight:700; font-size:1.15rem;
+        background:color-mix(in srgb,var(--cash) 16%,var(--card)); color:var(--ink); border-left:8px solid var(--cash); }
+    .result.none { background:color-mix(in srgb,var(--danger) 14%,var(--card)); border-left-color:var(--danger); }
+    .result[hidden] { display:none; }
+    .legend { color:var(--muted); font-size:.85rem; margin:0 0 10px; }
+
+    /* Table */
+    .scroll { overflow-x:auto; background:var(--card); border-radius:var(--r); }
+    table.data { width:100%; border-collapse:collapse; }
+    table.data thead th { background:color-mix(in srgb,var(--brand) 14%,var(--card)); color:var(--ink); padding:0; text-align:left; }
+    table.data thead th button { width:100%; min-height:52px; padding:0 14px; background:none; border:0; color:inherit; font-weight:700; font-size:.95rem; text-align:left; cursor:pointer; }
+    th[aria-sort="ascending"] button::after { content:" ▲"; font-size:.7em; }
+    th[aria-sort="descending"] button::after { content:" ▼"; font-size:.7em; }
+    table.data th.act { width:120px; }
+    table.data tbody tr + tr td { border-top:1px solid var(--line); }
+    table.data tbody tr:active { background:var(--chip); }
+    table.data tbody td { padding:14px; vertical-align:middle; font-size:1.02rem; }
+    td.page { color:var(--muted); font-weight:700; font-variant-numeric:tabular-nums; width:70px; }
+    td.empty { text-align:center; color:var(--muted); padding:48px 14px; }
+    .num { display:inline-flex; align-items:center; justify-content:center; min-width:46px; height:46px; margin:3px 6px 3px 0; padding:0 10px;
+        border-radius:999px; background:var(--chip); color:var(--chip-ink); font-weight:800; font-size:1.05rem; font-variant-numeric:tabular-nums; }
+    .num.hit { background:var(--ball); color:var(--ball-ink); box-shadow:0 0 0 4px color-mix(in srgb,var(--ball) 35%,transparent); }
+    .amt { display:inline-block; padding:6px 12px; border-radius:10px; font-weight:800; font-variant-numeric:tabular-nums; }
+    .amt.cash { background:color-mix(in srgb,var(--cash) 16%,var(--card)); color:var(--cash); }
+    .amt.upi { background:color-mix(in srgb,var(--upi) 16%,var(--card)); color:var(--upi); }
+    .amt.neg { background:var(--danger); color:#fff; }
+    .act .cv { display:flex; gap:8px; justify-content:flex-end; }
+
+    .pager { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-top:14px; color:var(--muted); }
+    .pager .ctrl { display:flex; align-items:center; gap:10px; }
+    .pager select { width:auto; }
+
+    /* Dialogs & toast */
+    dialog { border:0; border-radius:20px; background:var(--card); color:var(--ink); padding:24px; width:min(560px,94vw); box-shadow:0 20px 60px rgba(0,0,0,.4); }
+    dialog::backdrop { background:rgba(0,0,0,.5); }
+    dialog h2 { margin:0 0 12px; font-size:1.3rem; } dialog p { margin:0 0 14px; color:var(--muted); }
+    .field { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; font-size:.85rem; font-weight:700; color:var(--muted); }
+    .field input { min-height:50px; padding:0 12px; border:1.5px solid var(--line); border-radius:12px; background:var(--bg); color:var(--ink); font-size:1.1rem; }
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .form-err { color:var(--danger); min-height:1.3em; margin:0 0 8px; font-weight:600; }
+    .dlg-actions { display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
+    #toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); max-width:min(600px,92vw); padding:14px 20px; border-radius:14px;
+        background:#10231f; color:#fff; font-weight:700; box-shadow:0 8px 28px rgba(0,0,0,.35); z-index:50; }
+    #toast.error { background:var(--danger); } #toast[hidden] { display:none; }
+
+    @media (max-width:820px) { /* tablet portrait */
+        body { padding:8px 10px 40px; }
+        .file-bar, .data-actions { min-width:100%; } .data-actions { flex-wrap:wrap; }
+    }
+    @media (max-width:640px) { /* phones: rows become cards */
+        .stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .filters { grid-template-columns:1fr 1fr; } .filters label.f-search { grid-column:1/-1; }
+        .scroll { background:none; overflow:visible; }
+        table.data, table.data tbody, table.data tr, table.data td { display:block; width:100%; }
+        table.data thead { display:none; }
+        table.data tbody tr { background:var(--card); border-radius:var(--r); margin-bottom:10px; padding:6px 0; }
+        table.data tbody tr + tr td { border-top:0; }
+        table.data tbody td { display:flex; justify-content:space-between; gap:12px; padding:6px 14px; }
+        table.data tbody td::before { content:attr(data-label); color:var(--muted); font-size:.8rem; font-weight:700; flex:0 0 80px; padding-top:8px; }
+        table.data tbody td.empty::before { display:none; } table.data tbody td.empty { display:block; background:var(--card); border-radius:var(--r); }
+        .cv { text-align:right; min-width:0; overflow-wrap:anywhere; }
+    }
+    @media print {
+        body { background:#fff; padding:0; } .page-header { background:none; color:#000; box-shadow:none; position:static; border-bottom:2px solid #000; border-radius:0; }
+        .page-header .sub { color:#333; } .event-actions, .filters, .pager, .badge, .act, #toast, .legend { display:none !important; }
+        .stat-card { border:1px solid #ccc; } table.data tbody tr { break-inside:avoid; }
+    }
+
+    /* Logo + install */
+    .brand { display:flex; align-items:center; gap:14px; min-width:0; }
+    .brand .logo { width:52px; height:52px; border-radius:12px; flex:none; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+    .head-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+    .btn.install { background:#fff; color:var(--brand); }
+    .btn.install[hidden] { display:none; }
+    #iosHelp { position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:flex-end; justify-content:center; padding:16px; z-index:50; }
+    #iosHelp[hidden] { display:none; }
+    #iosHelp .sheet { background:var(--card); color:var(--ink); border-radius:var(--r); padding:20px; max-width:420px; width:100%; }
+    #iosHelp h2 { margin:0 0 8px; font-size:1.15rem; }
+    #iosHelp ol { margin:0 0 16px; padding-left:22px; line-height:1.6; }
+    @media print { .head-actions { display:none !important; } }
+</style>
+</head>
+<body>
+<div class="container">
+    <header class="page-header">
+        <div class="brand">
+            <img class="logo" src="icons/icon-192.png" alt="Housie Archive logo" width="52" height="52">
+            <div>
+                <h1 id="title">Bumper Housie Records</h1>
+                <p class="sub" id="subtitle">Type a ticket number to see if it won.</p>
+            </div>
+        </div>
+        <div class="head-actions">
+            <button type="button" id="btnInstall" class="btn install" hidden>⬇ Install app</button>
+        </div>
+    </header>
+    <div id="iosHelp" hidden role="dialog" aria-modal="true" aria-labelledby="iosTitle">
+        <div class="sheet">
+            <h2 id="iosTitle">Install on iPhone / iPad</h2>
+            <ol>
+                <li>Open this page in <b>Safari</b>.</li>
+                <li>Tap the <b>Share</b> button.</li>
+                <li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+            </ol>
+            <button type="button" id="iosClose" class="btn primary">Got it</button>
+        </div>
+    </div>
+
+    <section class="dashboard-controls">
+        <div class="event-actions">
+            <div class="file-bar" id="fileBar">
+                <span class="file-icon" aria-hidden="true">📄</span>
+                <div class="file-info">
+                    <span class="file-label">Current file</span>
+                    <b id="fileName">No file open</b>
+                </div>
+                <span class="file-count" id="fileCount"></span>
+                <button type="button" id="btnClose" class="btn ghost" hidden>✕ Close file</button>
+            </div>
+            <div class="data-actions">
+                <input type="file" id="importFile" accept=".csv,text/csv" hidden>
+                <button type="button" id="btnImport" class="btn primary">📂 Open</button>
+                <button type="button" id="btnExport" class="btn">📤 Export</button>
+                <button type="button" id="btnPrint" class="btn" aria-label="Print" title="Print">🖨️</button>
+            </div>
+        </div>
+
+        <h2 class="stats-title">Grand Total <span>All entries — not affected by search or filters</span></h2>
+        <div class="stats" id="statsGrand" aria-live="polite">
+            <div class="stat-card"><span class="stat-label">Total Tickets</span><b id="gRows">0</b></div>
+            <div class="stat-card"><span class="stat-label">Total Amount</span><b id="gTotal">₹0</b></div>
+            <div class="stat-card"><span class="stat-label">Total Cash</span><b id="gCash">₹0</b></div>
+            <div class="stat-card"><span class="stat-label">Total UPI</span><b id="gUPI">₹0</b></div>
+        </div>
+
+        <div id="viewBox" hidden>
+            <h2 class="stats-title">Filtered results <span id="scope"></span></h2>
+            <div class="stats" aria-live="polite">
+                <div class="stat-card"><span class="stat-label">Tickets</span><b id="statRows">0</b></div>
+                <div class="stat-card"><span class="stat-label">Amount</span><b id="statTotal">₹0</b></div>
+                <div class="stat-card"><span class="stat-label">Cash</span><b id="statCash">₹0</b></div>
+                <div class="stat-card"><span class="stat-label">UPI</span><b id="statUPI">₹0</b></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="filters" aria-label="Search and sort">
+        <div class="seg" id="modeSwitch" role="group" aria-label="Search in">
+            <span class="lbl">Search by</span>
+            <button type="button" data-mode="ticket" aria-pressed="true">Ticket No.</button>
+            <button type="button" data-mode="cash" aria-pressed="false">Cash</button>
+            <button type="button" data-mode="upi" aria-pressed="false">UPI</button>
+            <button type="button" data-mode="details" aria-pressed="false">Details</button>
+        </div>
+        <label class="f-search"><span id="searchLbl">Search ticket no.</span>
+            <input type="search" id="fTicket" placeholder="Enter ticket number" inputmode="numeric" autocomplete="off" enterkeyhint="search">
+        </label>
+        <label>Page no. <select id="fPage" aria-label="Filter by page"><option value="">All pages</option></select></label>
+        <label>Sort by
+            <select id="sortSel" aria-label="Sort by">
+                <option value="">Original order</option>
+                <option value="0:1">Page ↑</option><option value="0:-1">Page ↓</option>
+                <option value="1:1">Ticket ↑</option><option value="1:-1">Ticket ↓</option>
+                <option value="2:-1">Cash (high first)</option><option value="3:-1">UPI (high first)</option>
+            </select>
+        </label>
+    </section>
+
+
+    <div class="result" id="result" role="status" hidden></div>
+    <p class="legend">Red amounts are negative (deducted) entries.</p>
+
+    <div class="scroll">
+        <table id="housieTable" class="data">
+            <thead>
+                <tr>
+                    <th scope="col" data-col="0" aria-sort="none"><button type="button">Page</button></th>
+                    <th scope="col" data-col="1" aria-sort="none"><button type="button">Ticket No.</button></th>
+                    <th scope="col" data-col="2" aria-sort="none"><button type="button">Cash Amount</button></th>
+                    <th scope="col" data-col="3" aria-sort="none"><button type="button">UPI Amount</button></th>
+                    <th scope="col" data-col="4" aria-sort="none"><button type="button">Details</button></th>
+                    <th scope="col" class="act"><span class="sr" style="position:absolute;left:-9999px">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+        </table>
+    </div>
+
+    <div class="pager">
+        <span id="pageInfo"></span>
+        <div class="ctrl">
+            <label>Rows <select id="pageSize" aria-label="Rows per page">
+                <option>10</option><option>25</option><option>50</option><option>100</option>
+            </select></label>
+            <button type="button" id="prev" class="btn ghost">‹ Prev</button>
+            <span id="pageNum"></span>
+            <button type="button" id="next" class="btn ghost">Next ›</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add entry -->
+<dialog id="addDlg">
+    <form id="addForm" novalidate>
+        <h2 id="addTitle">Add entry</h2>
+        <div class="field-row">
+            <label class="field">Page <input id="addPage" type="number" min="1" step="1" required inputmode="numeric"></label>
+            <label class="field">Ticket No(s). <input id="addTickets" type="text" required placeholder="123 456" autocomplete="off"></label>
+        </div>
+        <div class="field-row">
+            <label class="field">Cash Amount <input id="addCash" type="text" inputmode="decimal" placeholder="0" autocomplete="off"></label>
+            <label class="field">UPI Amount <input id="addUpi" type="text" inputmode="decimal" placeholder="0" autocomplete="off"></label>
+        </div>
+        <label class="field">Details <input id="addDetails" type="text" autocomplete="off"></label>
+        <p class="form-err" id="addErr" role="alert"></p>
+        <div class="dlg-actions">
+            <button type="button" class="btn ghost" data-close>Cancel</button>
+            <button type="submit" value="more" class="btn" id="addMore">Add another</button>
+            <button type="submit" value="close" class="btn primary" id="addSubmit">Add &amp; close</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Import choice -->
+<dialog id="importDlg">
+    <h2>Import CSV</h2>
+    <p id="importMsg"></p>
+    <div class="dlg-actions">
+        <button type="button" class="btn ghost" id="impCancel">Cancel</button>
+        <button type="button" class="btn" id="impMerge">Merge (skip duplicates)</button>
+        <button type="button" class="btn primary" id="impReplace">Replace all</button>
+    </div>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function () {
+    'use strict';
+
+    var KEY = 'housie.records.v2';
+    var DEFAULT_TITLE = 'Bumper Housie Records';
+    var fmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
+    var HEADERS = ['Page', 'Ticket No.', 'Cash Amount', 'UPI Amount', 'Details'];
+
+    var state = {
+        rows: [], fileName: '', mode: 'ticket',
+        sort: { col: null, dir: 1 }, pageSize: 25, page: 1, printAll: false,
+        filters: { page: '', ticket: '', cash: '', upi: '', details: '' }
+    };
+
+    function $(id) { return document.getElementById(id); }
+    function el(tag, cls, text) {
+        var e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (text != null) e.textContent = text;
+        return e;
+    }
+    function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    function debounce(fn, ms) {
+        var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); };
+    }
+    function money(n) { return (n < 0 ? '-' : '') + '₹' + fmt.format(Math.abs(n)); }
+    function tokens(text) { return String(text).split(/[\s,]+/).filter(Boolean); }
+
+    // One place for amount parsing: strips commas/₹/spaces, '-' anywhere means negative.
+    function parseAmount(v) {
+        var s = String(v == null ? '' : v);
+        var neg = s.indexOf('-') > -1;
+        var n = parseFloat(s.replace(/[^0-9.]/g, '')) || 0;
+        return neg ? -n : n;
+    }
+
+    // Search keys for one ticket token: case-insensitive, leading zeros ignored, hyphen parts also match.
+    function normKey(t) { t = String(t).toLowerCase(); return /^\d+$/.test(t) ? String(parseInt(t, 10)) : t; }
+    function keysOf(t) {
+        var out = [normKey(t)];
+        if (t.indexOf('-') > -1) t.split('-').forEach(function (p) { if (p) out.push(normKey(p)); });
+        return out;
+    }
+    function queryKey(v) { return normKey(String(v).toLowerCase().replace(/[\s,;|\/]+/g, '')); }
+
+    function prep(r) {
+        r.t = tokens(r.tickets);
+        r.s = [];
+        r.t.forEach(function (t) { keysOf(t).forEach(function (k) { if (r.s.indexOf(k) < 0) r.s.push(k); }); });
+        r.c = parseAmount(r.cash);
+        r.u = parseAmount(r.upi);
+        r.p = parseFloat(r.page);
+        return r;
+    }
+    function makeRow(page, tickets, cash, upi, details) {
+        return prep({
+            page: String(page).trim(), tickets: String(tickets).trim(),
+            cash: String(cash).trim(), upi: String(upi).trim(), details: String(details).trim()
+        });
+    }
+    function rowKey(r) {
+        return [r.page, r.tickets, r.cash, r.upi, r.details].join('\u0001');
+    }
+
+    /* ---------- Storage ---------- */
+    var storageWarned = false;
+    function save() {
+        try {
+            localStorage.setItem(KEY, JSON.stringify({
+                rows: state.rows.map(function (r) { return [r.page, r.tickets, r.cash, r.upi, r.details]; }),
+                fileName: state.fileName, pageSize: state.pageSize
+            }));
+        } catch (e) {
+            if (!storageWarned) {
+                storageWarned = true;
+                toast('Could not save on this device. Use Export CSV to keep your data.', 'error');
+            }
+        }
+    }
+    function load() {
+        try {
+            var s = JSON.parse(localStorage.getItem(KEY) || 'null');
+            if (!s) return;
+            state.rows = (s.rows || []).map(function (a) { return makeRow(a[0], a[1], a[2], a[3], a[4]); });
+            state.fileName = s.fileName || '';
+            if ([10, 25, 50, 100].indexOf(s.pageSize) > -1) state.pageSize = s.pageSize;
+        } catch (e) { /* ignore corrupt or unavailable storage */ }
+    }
+
+    /* ---------- Toast ---------- */
+    var toastTimer;
+    function toast(msg, type) {
+        var t = $('toast');
+        t.textContent = msg;
+        t.className = type === 'error' ? 'error' : '';
+        t.hidden = false;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { t.hidden = true; }, type === 'error' ? 7000 : 4000);
+    }
+
+    /* ---------- CSV ---------- */
+    function parseCSV(text) {
+        if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+        var rows = [], row = [], cell = '', q = false;
+        for (var i = 0; i < text.length; i++) {
+            var c = text[i];
+            if (q) {
+                if (c === '"') {
+                    if (text[i + 1] === '"') { cell += '"'; i++; } else { q = false; }
+                } else { cell += c; }
+            } else if (c === '"') { q = true; }
+            else if (c === ',') { row.push(cell); cell = ''; }
+            else if (c === '\n' || c === '\r') {
+                if (c === '\r' && text[i + 1] === '\n') i++;
+                row.push(cell); cell = ''; rows.push(row); row = [];
+            } else { cell += c; }
+        }
+        if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+        return rows;
+    }
+    // Undo the apostrophe guard added on export (see csvCell).
+    function unguard(s) { return /^'[=+@\-\t\r]/.test(s) ? s.slice(1) : s; }
+
+    function rowsFromCSV(text) {
+        var grid = parseCSV(text);
+        if (!grid.length) throw new Error('The file is empty.');
+        var h = grid[0].map(function (s) { return s.trim().toLowerCase(); });
+        if (h.length < 5 || h[0].indexOf('page') < 0 || h[1].indexOf('ticket') < 0) {
+            throw new Error('This does not look like a Housie CSV (expected: ' + HEADERS.join(', ') + ').');
+        }
+        var out = [], skipped = 0;
+        for (var i = 1; i < grid.length; i++) {
+            var g = grid[i];
+            if (g.every(function (c) { return !c.trim(); })) continue;
+            while (g.length < 5) g.push('');
+            g = g.slice(0, 5).map(unguard);
+            if (!g[1].trim()) { skipped++; continue; }
+            out.push(makeRow(g[0], g[1], g[2], g[3], g[4]));
+        }
+        out.skipped = skipped;
+        return out;
+    }
+
+    // Quote every cell; guard text that Excel could run as a formula.
+    // Plain negative numbers (e.g. -500) are safe and stay untouched.
+    function csvCell(v) {
+        var s = String(v);
+        if (/^[=+@\t\r]/.test(s) || (/^-/.test(s) && !/^-\s*[\d.,]+$/.test(s))) s = "'" + s;
+        return '"' + s.replace(/"/g, '""') + '"';
+    }
+
+    function exportCSV() {
+        if (!state.rows.length) { toast('Nothing to export yet.', 'error'); return; }
+        var lines = [HEADERS.map(csvCell).join(',')];
+        state.rows.forEach(function (r) {
+            lines.push([r.page, r.tickets, r.cash, r.upi, r.details].map(csvCell).join(','));
+        });
+        var name = (state.fileName || 'Housie_Data.csv').replace(/[\\/:*?"<>|]+/g, '_');
+        if (!/\.csv$/i.test(name)) name += '.csv';
+        var blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+        var a = document.createElement('a');
+        a.download = name;
+        a.href = URL.createObjectURL(blob);
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+        toast('Exported ' + state.rows.length + ' entries to ' + name);
+    }
+
+    /* ---------- Duplicates ---------- */
+    function countDupes(rows) {
+        var seen = {}, d = 0;
+        rows.forEach(function (r) {
+            r.t.forEach(function (t) {
+                var k = r.page + '|' + t.toLowerCase();
+                if (seen[k]) d++; else seen[k] = 1;
+            });
+        });
+        return d;
+    }
+
+    /* ---------- Filtering / sorting ---------- */
+    var MODES = { ticket: 'Ticket No.', cash: 'Cash', upi: 'UPI', details: 'Details' };
+    function filtered() {
+        var f = state.filters, m = state.mode, raw = f.ticket;
+        var q = '', amt = null, det = '';
+        if (raw) {
+            if (m === 'ticket') q = queryKey(raw);
+            else if (m === 'details') det = raw.toLowerCase();
+            else amt = /\d/.test(raw) ? parseAmount(raw) : NaN;   // Cash/UPI: exact amount
+        }
+        return state.rows.filter(function (r) {
+            if (f.page && r.page !== f.page) return false;
+            if (q && r.s.indexOf(q) < 0) return false;
+            if (amt !== null && (m === 'cash' ? r.c : r.u) !== amt) return false;
+            if (det && r.details.toLowerCase().indexOf(det) < 0) return false;
+            return true;
+        });
+    }
+    function keyOf(r, c) {
+        switch (c) {
+            case 0: return isNaN(r.p) ? r.page.toLowerCase() : r.p;
+            case 1: var t = r.t[0] || '', n = parseFloat(t); return isNaN(n) ? t.toLowerCase() : n;
+            case 2: return r.c;
+            case 3: return r.u;
+            default: return r.details.toLowerCase();
+        }
+    }
+    function cmp(a, b, c) {
+        var x = keyOf(a, c), y = keyOf(b, c);
+        var xn = typeof x === 'number', yn = typeof y === 'number';
+        if (xn && yn) return x - y;
+        if (xn !== yn) return xn ? -1 : 1;
+        return x < y ? -1 : x > y ? 1 : 0;
+    }
+    function sorted(list) {
+        var s = state.sort;
+        if (s.col === null) return list;
+        return list.sort(function (a, b) { return cmp(a, b, s.col) * s.dir; });
+    }
+    function setSort(col, dir) {
+        state.sort = { col: col, dir: dir };
+        state.page = 1;
+        render();
+    }
+
+    /* ---------- Rendering ---------- */
+    function renderHeader() {
+        var has = state.fileName || state.rows.length;
+        var name = state.fileName || (state.rows.length ? 'Manual entries (no file)' : 'No file open');
+        $('fileName').textContent = name;
+        $('fileName').title = name;
+        $('fileCount').textContent = state.rows.length ? state.rows.length + ' entries' : '';
+        $('fileBar').classList.toggle('empty', !has);
+        $('btnClose').hidden = !has;
+        document.title = state.fileName || 'Bumper Housie Data Archive';
+    }
+
+    function rebuildPageSelect() {
+        var sel = $('fPage'), seen = {}, pages = [];
+        state.rows.forEach(function (r) { if (r.page && !seen[r.page]) { seen[r.page] = 1; pages.push(r.page); } });
+        pages.sort(function (a, b) {
+            var x = parseFloat(a), y = parseFloat(b);
+            return (isNaN(x) || isNaN(y)) ? a.localeCompare(b) : x - y;
+        });
+        if (state.filters.page && !seen[state.filters.page]) state.filters.page = '';
+        sel.textContent = '';
+        sel.appendChild(new Option('All pages', ''));
+        pages.forEach(function (p) { sel.appendChild(new Option(p, p)); });
+        sel.value = state.filters.page;
+    }
+
+    function totals(list) {
+        var tk = 0, cash = 0, upi = 0;
+        list.forEach(function (r) { tk += r.t.length; cash += r.c; upi += r.u; });
+        return { tk: tk, cash: cash, upi: upi };
+    }
+    function renderStats(list) {
+        // Grand total: always every entry, never changes with search/filters
+        var g = totals(state.rows);
+        $('gRows').textContent = fmt.format(g.tk);
+        $('gCash').textContent = money(g.cash);
+        $('gUPI').textContent = money(g.upi);
+        $('gTotal').textContent = money(g.cash + g.upi);
+
+        // Filtered results: shown only while a filter is active
+        var active = Object.keys(state.filters).some(function (k) { return state.filters[k]; });
+        $('viewBox').hidden = !active;
+        var v = totals(list);
+        $('statRows').textContent = fmt.format(v.tk);
+        $('statCash').textContent = money(v.cash);
+        $('statUPI').textContent = money(v.upi);
+        $('statTotal').textContent = money(v.cash + v.upi);
+        $('scope').textContent = '— ' + list.length + ' of ' + state.rows.length + ' entries';
+        return { cash: v.cash, upi: v.upi };
+    }
+
+    function renderResult(list, sums) {
+        var box = $('result'), tk = state.filters.ticket;
+        if (!tk) { box.hidden = true; return; }
+        box.hidden = false;
+        if (state.mode !== 'ticket') {
+            var lab = MODES[state.mode];
+            if (!list.length) {
+                box.className = 'result none';
+                box.textContent = 'No entries found for “' + tk + '” in ' + lab + '.';
+            } else {
+                box.className = 'result';
+                box.textContent = list.length + (list.length === 1 ? ' entry matches “' : ' entries match “') + tk + '” in ' + lab +
+                    ' — ' + money(sums.cash + sums.upi) + ' total (Cash ' + money(sums.cash) + ' · UPI ' + money(sums.upi) + ').';
+            }
+            return;
+        }
+        if (!list.length) {
+            box.className = 'result none';
+            var q = queryKey(tk), near = [];
+            state.rows.forEach(function (r) {
+                r.t.forEach(function (t) { if (q && normKey(t).indexOf(q) === 0 && normKey(t) !== q && near.indexOf(t) < 0) near.push(t); });
+            });
+            box.textContent = 'No win found for ticket ' + tk + '.' +
+                (near.length ? ' Did you mean: ' + near.slice(0, 6).join(', ') + '?' : '');
+        } else {
+            box.className = 'result';
+            box.textContent = 'Ticket ' + tk + ' won in ' + list.length + (list.length === 1 ? ' entry' : ' entries') +
+                ' — ' + money(sums.cash + sums.upi) + ' total (Cash ' + money(sums.cash) + ' · UPI ' + money(sums.upi) + ').';
+        }
+    }
+
+    function cell(label, cls) {
+        var td = el('td', cls || '');
+        td.setAttribute('data-label', label);
+        var cv = el('div', 'cv');
+        td.appendChild(cv);
+        return { td: td, cv: cv };
+    }
+    function amountNode(n, kind) {
+        if (!n) return document.createTextNode('');
+        return el('span', 'amt ' + kind + (n < 0 ? ' neg' : ''), (n < 0 ? '-' : '') + fmt.format(Math.abs(n)));
+    }
+
+    function renderTable(list) {
+        var body = $('tbody');
+        var size = state.printAll ? Math.max(list.length, 1) : state.pageSize;
+        var pages = Math.max(1, Math.ceil(list.length / size));
+        if (state.page > pages) state.page = pages;
+        var start = (state.page - 1) * size;
+        var slice = list.slice(start, start + size);
+        var hitTok = state.mode === 'ticket' && state.filters.ticket ? queryKey(state.filters.ticket) : '';
+
+        body.textContent = '';
+        if (!slice.length) {
+            var tr0 = el('tr'), td0 = el('td', 'empty',
+                state.rows.length ? 'No prizes match. Check the number or clear the filters.'
+                    : 'No file open. Tap “Open CSV” to view your event file.');
+            td0.colSpan = 6;
+            tr0.appendChild(td0);
+            body.appendChild(tr0);
+        }
+        var frag = document.createDocumentFragment();
+        slice.forEach(function (r) {
+            var tr = el('tr'), c;
+            c = cell('Page', 'page'); c.cv.textContent = r.page; tr.appendChild(c.td);
+
+            c = cell('Ticket No.');
+            r.t.forEach(function (n) {
+                c.cv.appendChild(el('span', 'num' + (hitTok && keysOf(n).indexOf(hitTok) > -1 ? ' hit' : ''), n));
+            });
+            tr.appendChild(c.td);
+
+            c = cell('Cash'); c.cv.appendChild(amountNode(r.c, 'cash')); tr.appendChild(c.td);
+            c = cell('UPI'); c.cv.appendChild(amountNode(r.u, 'upi')); tr.appendChild(c.td);
+            c = cell('Details'); c.cv.textContent = r.details; tr.appendChild(c.td);
+
+            c = cell('', 'act');
+            var edit = el('button', 'btn icon ghost', '✎');
+            edit.type = 'button';
+            edit.title = 'Edit';
+            edit.setAttribute('aria-label', 'Edit entry for ticket ' + r.tickets);
+            edit.addEventListener('click', function () { openAdd(r); });
+            c.cv.appendChild(edit);
+            var del = el('button', 'btn icon ghost', '✕');
+            del.type = 'button';
+            del.title = 'Delete';
+            del.setAttribute('aria-label', 'Delete entry for ticket ' + r.tickets);
+            del.addEventListener('click', function () { deleteRow(r); });
+            c.cv.appendChild(del);
+            tr.appendChild(c.td);
+            frag.appendChild(tr);
+        });
+        body.appendChild(frag);
+
+        // Pager
+        var total = state.rows.length;
+        $('pageInfo').textContent = list.length
+            ? 'Showing ' + (start + 1) + '–' + (start + slice.length) + ' of ' + list.length + ' entries' +
+              (list.length !== total ? ' (filtered from ' + total + ')' : '')
+            : 'Showing 0 entries';
+        $('pageNum').textContent = 'Page ' + state.page + ' of ' + pages;
+        $('prev').disabled = state.page <= 1;
+        $('next').disabled = state.page >= pages;
+        $('pageSize').value = String(state.pageSize);
+
+        // Sort indicators
+        document.querySelectorAll('#housieTable thead th[data-col]').forEach(function (th) {
+            var col = +th.getAttribute('data-col');
+            th.setAttribute('aria-sort', state.sort.col === col ? (state.sort.dir === 1 ? 'ascending' : 'descending') : 'none');
+        });
+        var sv = state.sort.col === null ? '' : state.sort.col + ':' + state.sort.dir;
+        var sSel = $('sortSel');
+        sSel.value = sv;
+        if (sSel.value !== sv) sSel.value = '';
+    }
+
+    function render() {
+        var list = sorted(filtered());
+        var sums = renderStats(list);
+        renderResult(list, sums);
+        renderTable(list);
+    }
+    function commit() {
+        save();
+        renderHeader();
+        rebuildPageSelect();
+        render();
+    }
+
+    /* ---------- Row actions ---------- */
+    function deleteRow(r) {
+        if (!confirm('Delete the entry for ticket(s) ' + r.tickets + ' on page ' + r.page + '?')) return;
+        state.rows.splice(state.rows.indexOf(r), 1);
+        commit();
+        toast('Entry deleted.');
+    }
+
+    /* ---------- Add entry ---------- */
+    var addDlg = $('addDlg');
+    var editing = null;
+    function openAdd(row) {
+        editing = row || null;
+        $('addForm').reset();
+        $('addErr').textContent = '';
+        $('addTitle').textContent = editing ? 'Edit entry' : 'Add entry';
+        $('addMore').hidden = !!editing;
+        $('addSubmit').textContent = editing ? 'Save changes' : 'Add & close';
+        if (editing) {
+            $('addPage').value = editing.page;
+            $('addTickets').value = editing.tickets;
+            $('addCash').value = editing.cash;
+            $('addUpi').value = editing.upi;
+            $('addDetails').value = editing.details;
+        }
+        addDlg.showModal();
+        (editing ? $('addTickets') : $('addPage')).focus();
+    }
+    addDlg.addEventListener('close', function () { editing = null; });
+    $('addForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var page = $('addPage').value.trim(), tk = $('addTickets').value.trim();
+        var cash = $('addCash').value.trim(), upi = $('addUpi').value.trim(), det = $('addDetails').value.trim();
+        var err = $('addErr');
+        if (!/^\d+$/.test(page)) { err.textContent = 'Enter a page number.'; return; }
+        var toks = tokens(tk);
+        if (!toks.length) { err.textContent = 'Enter at least one ticket number.'; return; }
+        for (var i = 0; i < toks.length; i++) {
+            if (!/^[A-Za-z0-9-]+$/.test(toks[i])) { err.textContent = '“' + toks[i] + '” is not a valid ticket number.'; return; }
+        }
+        var amtOk = /^-?\s*[\d,]*\.?\d*$/;
+        if (!amtOk.test(cash) || !amtOk.test(upi)) { err.textContent = 'Amounts must be numbers (use - for a deduction).'; return; }
+        if (!parseAmount(cash) && !parseAmount(upi)) { err.textContent = 'Enter a Cash or UPI amount.'; return; }
+
+        var dupes = toks.filter(function (t) {
+            return state.rows.some(function (r) {
+                return r !== editing && r.page === page && r.t.some(function (x) { return x.toLowerCase() === t.toLowerCase(); });
+            });
+        });
+        if (dupes.length && !confirm('Ticket ' + dupes.join(', ') + ' already has an entry on page ' + page + '. Add anyway?')) return;
+
+        if (editing) {
+            editing.page = page; editing.tickets = toks.join(' ');
+            editing.cash = cash; editing.upi = upi; editing.details = det;
+            prep(editing);
+            editing = null;
+            commit();
+            addDlg.close();
+            toast('Entry updated.');
+            return;
+        }
+        state.rows.push(makeRow(page, toks.join(' '), cash, upi, det));
+        commit();
+        var more = e.submitter && e.submitter.value === 'more';
+        toast('Entry added.');
+        if (more) {
+            ['addTickets', 'addCash', 'addUpi', 'addDetails'].forEach(function (id) { $(id).value = ''; });
+            err.textContent = '';
+            $('addTickets').focus();
+        } else {
+            addDlg.close();
+            $('addForm').reset();
+        }
+    });
+
+    /* ---------- Import ---------- */
+    var pendingImport = null, pendingName = '';
+    var importDlg = $('importDlg');
+    function applyImport(mode) {
+        var incoming = pendingImport, before = state.rows.length;
+        pendingImport = null;
+        importDlg.close();
+        if (mode === 'replace') {
+            state.rows = incoming;
+            state.fileName = pendingName;
+        } else {
+            if (pendingName && state.fileName.indexOf(pendingName) < 0) state.fileName = state.fileName ? state.fileName + ' + ' + pendingName : pendingName;
+            var have = {};
+            state.rows.forEach(function (r) { have[rowKey(r)] = 1; });
+            incoming.forEach(function (r) { if (!have[rowKey(r)]) { have[rowKey(r)] = 1; state.rows.push(r); } });
+        }
+        state.filters = { page: '', ticket: '', cash: '', upi: '', details: '' };
+        syncFilterInputs();
+        state.page = 1;
+        commit();
+        var msg = mode === 'replace'
+            ? 'Imported ' + incoming.length + ' entries.'
+            : 'Merged — ' + (state.rows.length - before) + ' new entries added.';
+        if (incoming.skipped) msg += ' Skipped ' + incoming.skipped + ' rows with no ticket number.';
+        var d = countDupes(state.rows);
+        if (d) msg += ' ⚠ ' + d + ' possible duplicate ticket entries on the same page.';
+        toast(msg, d ? 'error' : '');
+    }
+    $('impReplace').addEventListener('click', function () { applyImport('replace'); });
+    $('impMerge').addEventListener('click', function () { applyImport('merge'); });
+    $('impCancel').addEventListener('click', function () { pendingImport = null; importDlg.close(); });
+    $('btnClose').addEventListener('click', function () {
+        if (!confirm('Close this file? The entries on screen will be cleared (use Export CSV first if you made changes).')) return;
+        state.rows = []; state.fileName = '';
+        state.filters = { page: '', ticket: '', cash: '', upi: '', details: '' };
+        state.sort = { col: null, dir: 1 }; state.page = 1;
+        pendingImport = null; $('importFile').value = '';
+        syncFilterInputs();
+        commit();
+        toast('File closed.');
+    });
+
+    $('btnImport').addEventListener('click', function () { $('importFile').click(); });
+    $('importFile').addEventListener('change', function (e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        pendingName = file.name;
+        var reader = new FileReader();
+        reader.onload = function () {
+            try {
+                var rows = rowsFromCSV(String(reader.result));
+                if (!rows.length) throw new Error('No entries found in that file.');
+                pendingImport = rows;
+                if (!state.rows.length) { applyImport('replace'); return; }
+                $('importMsg').textContent = 'The file has ' + rows.length + ' entries; you currently have ' + state.rows.length +
+                    '. Replace everything, or merge and skip entries you already have?';
+                importDlg.showModal();
+            } catch (err) { toast(err.message, 'error'); }
+        };
+        reader.onerror = function () { toast('Could not read that file.', 'error'); };
+        reader.readAsText(file);
+        e.target.value = '';
+    });
+
+    /* ---------- Wiring ---------- */
+    document.querySelectorAll('[data-close]').forEach(function (b) {
+        b.addEventListener('click', function () { b.closest('dialog').close(); });
+    });
+    $('btnExport').addEventListener('click', exportCSV);
+    $('btnPrint').addEventListener('click', function () { window.print(); });
+    window.addEventListener('beforeprint', function () { state.printAll = true; render(); });
+    window.addEventListener('afterprint', function () { state.printAll = false; render(); });
+
+    var PH = {
+        ticket: ['Search ticket no.', 'Enter ticket number', 'numeric'],
+        cash: ['Search cash amount', 'Enter cash amount', 'decimal'],
+        upi: ['Search UPI amount', 'Enter UPI amount', 'decimal'],
+        details: ['Search details', 'Type details to search', 'text']
+    };
+    function applyMode() {
+        document.querySelectorAll('#modeSwitch button').forEach(function (b) {
+            b.setAttribute('aria-pressed', String(b.getAttribute('data-mode') === state.mode));
+        });
+        var p = PH[state.mode];
+        $('searchLbl').textContent = p[0];
+        $('fTicket').placeholder = p[1];
+        $('fTicket').setAttribute('inputmode', p[2]);
+    }
+    document.querySelectorAll('#modeSwitch button').forEach(function (b) {
+        b.addEventListener('click', function () {
+            state.mode = b.getAttribute('data-mode');
+            applyMode();
+            state.page = 1;
+            render();
+            $('fTicket').focus();
+        });
+    });
+    function onFilter() { state.page = 1; render(); }
+    ['input', 'keyup', 'change', 'search'].forEach(function (evt) {
+        $('fTicket').addEventListener(evt, function () {
+            var v = this.value.trim();
+            if (v !== state.filters.ticket) { state.filters.ticket = v; onFilter(); }
+        });
+    });
+    $('fPage').addEventListener('change', function () { state.filters.page = this.value; onFilter(); });
+    function syncFilterInputs() {
+        $('fPage').value = state.filters.page;
+        $('fTicket').value = state.filters.ticket;
+    }
+    document.querySelectorAll('#housieTable thead th[data-col]').forEach(function (th) {
+        th.querySelector('button').addEventListener('click', function () {
+            var col = +th.getAttribute('data-col');
+            if (state.sort.col !== col) setSort(col, 1);
+            else if (state.sort.dir === 1) setSort(col, -1);
+            else setSort(null, 1);
+        });
+    });
+    $('sortSel').addEventListener('change', function () {
+        if (!this.value) { setSort(null, 1); return; }
+        var p = this.value.split(':');
+        setSort(+p[0], +p[1]);
+    });
+
+    $('pageSize').addEventListener('change', function () { state.pageSize = +this.value; state.page = 1; save(); render(); });
+    $('prev').addEventListener('click', function () { state.page--; render(); });
+    $('next').addEventListener('click', function () { state.page++; render(); });
+
+    /* ---------- Init ---------- */
+    load();
+    applyMode();
+    renderHeader();
+    rebuildPageSelect();
+    render();
+
+    /* ---------- Install (PWA) ---------- */
+    (function () {
+        var btn = $('btnInstall'), help = $('iosHelp'), deferred = null;
+        var standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+        var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        if (standalone) return;
+        window.addEventListener('beforeinstallprompt', function (e) {
+            e.preventDefault(); deferred = e; btn.hidden = false;
+        });
+        window.addEventListener('appinstalled', function () { deferred = null; btn.hidden = true; });
+        if (isIOS) btn.hidden = false;
+        btn.addEventListener('click', function () {
+            if (deferred) {
+                deferred.prompt();
+                deferred.userChoice.then(function () { deferred = null; btn.hidden = true; });
+            } else if (isIOS) { help.hidden = false; }
+        });
+        $('iosClose').addEventListener('click', function () { help.hidden = true; });
+        help.addEventListener('click', function (e) { if (e.target === help) help.hidden = true; });
+        if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+            navigator.serviceWorker.register('sw.js').catch(function () {});
+        }
+    })();
+})();
+</script>
+</body>
+</html>
