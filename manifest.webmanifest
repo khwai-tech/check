@@ -1,7 +1,7 @@
 {
-  "name": "Bumper Housie Data Archive",
-  "short_name": "Housie Archive",
-  "description": "Look up Bumper Housie ticket records offline.",
+  "name": "Bumper Housie Data Checking",
+  "short_name": "Check Data",
+  "description": "Look up Bumper Housie ticket records.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
