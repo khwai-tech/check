@@ -1,6 +1,6 @@
 {
-  "name": "Bumper Housie Data Checking",
-  "short_name": "Check Data",
+  "name": "Bumper Sales Records",
+  "short_name": "Check Sales",
   "description": "Look up Bumper Housie ticket records.",
   "start_url": "./index.html",
   "scope": "./",
